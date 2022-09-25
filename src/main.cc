@@ -2,10 +2,16 @@
 #include <SFML/Graphics.hpp>
 #include <stdio.h>
 
+void
+sphere_raycast( sf::RenderWindow& window,
+                const Point2f centre,
+                const Point3f light_pos,
+                const float radius);
+
 int main()
 {
     sf::RenderWindow window { sf::VideoMode { 1920, 1200 }, "Cringe" };
-    Vector vec { 300, 300 }; 
+    Vector vec { 300, 300, 300 }; 
     
     while ( window.isOpen() )
     {
@@ -19,8 +25,11 @@ int main()
         }
 
         window.clear();
-        vec.draw( window, sf::Vector2f { 1920.f / 2, 1200.f / 2 });
-        vec.rotate( 3.14f / 60);
+
+        sphere_raycast( window,
+                        Point2f { 1920.f / 2, 1200.f / 2 },
+                        Point3f { 0, 10000, 0 },
+                        500);
         window.display();
     }
 
