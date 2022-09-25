@@ -1,13 +1,7 @@
-#include "vector.h"
-#include <SFML/Graphics.hpp>
 #include <stdio.h>
+#include "raycaster.h"
 
-void
-sphere_raycast( sf::RenderWindow& window,
-                const Point2f centre,
-                const Point3f light_pos,
-                const float radius);
-
+   
 int main()
 {
     sf::RenderWindow window { sf::VideoMode { 1920, 1200 }, "Cringe" };
@@ -26,10 +20,20 @@ int main()
 
         window.clear();
 
+        sf::Color color = {};
+        color.a = 255;
+        color.b = 0;
+        color.r = 50;
+        color.g = 0;
+
         sphere_raycast( window,
-                        Point2f { 1920.f / 2, 1200.f / 2 },
-                        Point3f { 0, 10000, 0 },
-                        500);
+                        Point2f { 1920 / 2.f, 1200 / 2.f },
+                        Point3f { 0, 0, 2000 },
+                        
+                        400,
+                        color
+                       );
+        
         window.display();
     }
 

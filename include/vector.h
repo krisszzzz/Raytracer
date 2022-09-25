@@ -59,5 +59,5 @@ Vector operator-( const Vector& v1, const Vector& v2);
 
 inline float dot( const Vector& vec1, const Vector& vec2)
 {
-    return vec1.x_ * vec2.x_ + vec1.y_ + vec2.y_ + vec1.z_ * vec2.z_;
+    return vec1.x_ * vec2.x_ + vec1.y_ * vec2.y_ + vec1.z_ * vec2.z_;
 };
