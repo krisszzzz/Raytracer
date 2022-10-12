@@ -1,121 +1,32 @@
 #include "raytracer.h"
 
-static int
-is_equal( float lval,
-          float rval)
-{
-    constexpr float ACCURACY = 1e-6f;
-	return (fabs(lval - rval) < ACCURACY) ? 1 : 0;
-} /* is_equal */
-
-
-/*
- * solve linear equation b*x + c = 0
- */
-
-static int
-solve_linear( float b, 
-              float c,
-              float* x1,
-              float* x2)
-{
-    if ( is_equal(b, 0) )
-    {
-        return ( is_equal(c, 0) ) ? INF_SOLUTION : NO_SOLUTION;
-    }
-
-    *x1 = *x2 = -c / b;
-
-    return 1;
-
-} /* solve_lineal */
-
-int
-solve_quadratic( float a,
-                 float b,
-                 float c,
-                 float* x1,
-                 float* x2)
-{
-    if ( is_equal(a, 0) )
-    {
-        return solve_linear( b, c, x1, x2);
-    }
-
-    float d = b * b - 4 * a * c;
-
-    if ( is_equal(d, 0) )
-    {
-        *x1 = *x2 = -b / (2 * a);
-
-        return ONE_SOLUTION;
-    }
-
-    if ( d > 0 )
-    {
-        float sqrt_d = sqrt(d);
-        *x1 = (-b + sqrt_d) / (2 * a);
-        *x2 = (-b - sqrt_d) / (2 * a);
-        
-        return TWO_SOLUTION;
-    }
-    
-    return NO_SOLUTION;
-    
-}
-
-
-static int
-is_inter_against_ray( const Point3f& inter_point,
-                      const Point3f& on_ray,
-                      const Vector& ray_vec)
-{
-    Vector to_point = { inter_point.x_ - on_ray.x_,
-                        inter_point.y_ - on_ray.y_,
-                        inter_point.z_ - on_ray.z_ };
-
-    return dot( to_point, ray_vec) < 0;
-
-}
-
-static void
-find_nearest_inter( Point3f* nearest_inter, // the nearest inter will be placed in this var                 
-                    const Point3f& point_ref,
-                    const Point3f& on_ray)
-{
-    Vector first_point = { nearest_inter->x_ - on_ray.x_,
-                           nearest_inter->y_ - on_ray.y_,
-                           nearest_inter->z_ - on_ray.z_ };
-
-    Vector second_point = { point_ref.x_ - on_ray.x_,
-                            point_ref.y_ - on_ray.y_,
-                            point_ref.z_ - on_ray.z_ };
-
-    if ( second_point.count_len_sq() > first_point.count_len_sq() )
-    {
-        nearest_inter->x_ = point_ref.x_;
-        nearest_inter->y_ = point_ref.y_;
-        nearest_inter->z_ = point_ref.z_;
-    }
-        
-
-}
-
 static int 
-is_intersect( Vector& dir, // vector of ray
-              const Vector& orig,
-              const Sphere& sphere)
+find_intersect( float* const scaling_coeff, // get scanling coefficent to find the intersection point
+                const Vector& dir,    // normalized vector of ray
+                const Vector& orig,   // point on the dir vector
+                const Sphere& sphere) // sphere
 {
+    
     Vector to_center = sphere.centre_pos_ - orig;
-    float dir_center_dot = dot( dir, to_center) /
-                           sqrt( dir.count_len_sq());
+    float dir_center_dot = dot( dir, to_center);
+    to_center.set_len_sq();
 
-    float distance_2 = to_center.count_len_sq() -
+    float distance_2 = to_center.get_len_sq() -
                        dir_center_dot * dir_center_dot;
 
-    //printf( "distance_2 = %f\n", distance_2);
-
     if ( distance_2 > sphere.radius_ * sphere.radius_ )
+    {
+        return 0;
+    }
+
+    float dist_to_inter_center = sqrtf( sphere.radius_ * sphere.radius_ - distance_2);
+
+    *scaling_coeff = dir_center_dot - dist_to_inter_center;
+    float second_inter = dir_center_dot + dist_to_inter_center;
+
+    // TODO: not work for inner intersection
+    
+    if ( *scaling_coeff < 0 && second_inter < 0) // both intersection against the ray direction
     {
         return 0;
     }
@@ -123,26 +34,55 @@ is_intersect( Vector& dir, // vector of ray
     return 1;
 }
 
+static int
+find_nearest_inter( float* const scaling_coeff,
+                    const Vector& dir,
+                    const Vector& orig,
+                    Sphere objects[],
+                    int object_count)
+{
+    int obj_count = 0;
+    int inter_count = 0;
+    int nearest_obj = -1;
+
+    for (; obj_count < object_count; obj_count++ )
+    {
+        float curr_inter = 0;
+        
+        if ( find_intersect( &curr_inter, dir, orig, objects[obj_count]) )
+        {
+            inter_count++;
+
+            if ( inter_count == 1 )
+            {
+                *scaling_coeff = curr_inter;
+                nearest_obj = obj_count;
+            }
+
+            if ( curr_inter < *scaling_coeff )
+            {
+                *scaling_coeff = curr_inter;
+                nearest_obj = obj_count;
+            }
+
+        }
+    }
+
+    return nearest_obj;
+
+}
+
 void
 raytracer( sf::RenderWindow& window,
            int x_size,
            int y_size,
            Sphere objects[],
-           const Vector& view)
+           int object_count,
+           const Vector& view,
+           const Vector& light_pos)
 {
+    Vector view_vec = view;
 
-    // Point3f inter_points[2] = {};
-    // Sphere sphere { sf::Color::Green, Vector { 960, 600, 0 }, 200 };
-
-    // if (find_intersection( inter_points, Vector { 961 - 960, -600, -1500 }, Point3f { 960, 600, 1500 }, sphere) )
-    // {
-    //     printf("WTF\n");
-    // }
-
-    // printf( "Intersections: (%f; %f; %f) (%f; %f; %f)\n",
-    //         inter_points[0].x_, inter_points[0].y_, inter_points[0].z_,
-    //         inter_points[1].x_, inter_points[1].y_, inter_points[1].z_);
-    
     sf::VertexArray point_map { sf::Points, x_size * y_size };
     
     for ( int y = 0; y < y_size; y++ )
@@ -151,25 +91,61 @@ raytracer( sf::RenderWindow& window,
         {
             int point_pos = x + y * x_size;
             
-            Vector ray_vec { (float)x - view.x_,
-                             (float)y - view.y_,
-                              0       - view.z_ };
+            point_map[point_pos].position.x = (float)x;
+            point_map[point_pos].position.y = (float)y;
+ 
+            Vector ray_vec { (float)x - view_vec.get_x(),
+                             (float)y - view_vec.get_y(),
+                             0        - view_vec.get_z() };
+            ray_vec.norm();
+            
+            float scale_to_inter = 0;
 
-            if ( is_intersect( ray_vec, view, objects[0]) )
+            int nearest = find_nearest_inter( &scale_to_inter,
+                                              ray_vec,
+                                              view_vec,
+                                              objects,
+                                              object_count);
+
+            if ( nearest != -1 )
             {
-                // if ( y <= 10 )
-                // {
-                //     printf( "x = %d, y = %d\n", x, y);
-                // }
+                Vector inter_pos = view + ray_vec * scale_to_inter;
+                Vector norm_vec = inter_pos - objects[nearest].centre_pos_;
+                norm_vec.norm();
+
+                Vector reflect_vec {};
                 
-                // printf( "Ray vec: (%f, %f, %f), intersection: (%f; %f; %f), (%f; %f; %f)\n",
-                //         ray_vec.x_, ray_vec.y_, ray_vec.z_,
-                //         inter_points[0].x_, inter_points[0].y_, inter_points[0].z_,
-                //         inter_points[1].x_, inter_points[1].y_, inter_points[1].z_);
+                vec_reflect( &reflect_vec, inter_pos, norm_vec);
+
+                Vector light_vec = light_pos - inter_pos;
+                light_vec.norm();
+
+                float light_inter = 0;
+                int inter = find_nearest_inter( &light_inter, -light_vec, light_pos, objects, object_count);
+
+                if ( inter != nearest && inter != -1 )
+                {
+                    point_map[point_pos].color = sf::Color::Black;
+                    continue;
+                }
                 
-                point_map[point_pos].position.x = (float)x;
-                point_map[point_pos].position.y = (float)y;
-                point_map[point_pos].color = objects[0].color_;
+                
+                Vector light_refl_vec {};
+                vec_reflect( &light_refl_vec, light_vec, norm_vec);
+                
+                float diffusion = max( cosv( &light_vec, &norm_vec), 0.f);
+                float specular  = powf( max( -cosv( &light_refl_vec, &view_vec), 0.f),
+                                       objects[nearest].spec_coeff_);
+                // use "-" because the light_vec in against direction
+                
+                constexpr int cvt_to_int = 255;
+                
+                sf::Uint8 i_diff = (sf::Uint8)(diffusion * cvt_to_int);
+                sf::Color diff_color { i_diff, i_diff, i_diff };
+                sf::Uint8 i_spec = (sf::Uint8)(specular * cvt_to_int);
+                sf::Color spec_color { i_spec, i_spec, i_spec };
+                
+                point_map[point_pos].color = objects[nearest].color_ * diff_color + spec_color;
                 
             }
 

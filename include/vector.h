@@ -2,92 +2,117 @@
 #define VECTOR_H_
 
 #include <SFML/Graphics.hpp>
-#include <math.h>
+#include <cmath>
 
 
 
 class Vector
 {
 public:
-    Vector() : x_(), y_(), z_(), len_sq_(NAN) {};
-    Vector( float x, float y, float z) : x_(x), y_(y), z_(z), len_sq_(NAN) {};
-    
-    void operator+=( const Vector& add)
-    {
-        x_ += add.x_;
-        y_ += add.y_;
-        z_ += add.z_;
-    }
-    
-    void operator-=( const Vector& sub)
-    {
-         x_ -= sub.x_;
-         y_ -= sub.y_;
-         z_ -= sub.z_;
-         
-    };
+    Vector() : kernel() {}
+    Vector( float x, float y, float z) : kernel(x, y, z) {}
 
-    void operator*=( const float prod)
+    Vector& operator+=( const Vector& rhs);
+    Vector& operator-=( const Vector& rhs);
+    Vector& operator*=( const float rhs);
+    Vector operator*( const float value) const;
+    Vector operator+( const Vector& add) const;
+    Vector operator-( const Vector& sub) const;
+    Vector operator-() const;
+
+    float get_x() const
     {
-        x_ *= prod;
-        y_ *= prod;
-        z_ *= prod;
+        return kernel.x_;
     }
 
-    Vector operator+( const Vector& add) const
+    float get_y() const
     {
-        Vector tmp = *this;
-        tmp += add;
-        return tmp;
+        return kernel.y_;
     }
 
-    Vector operator-( const Vector& sub) const
+    float get_z() const
     {
-        Vector tmp = *this;
-        tmp -= sub;
-        return tmp;
+        return kernel.z_;
     }
 
-    Vector operator*( const float value) const
+    float get_len_sq() const
     {
-        Vector tmp = *this;
-        tmp *= value;
-        return tmp;
+        return kernel.len_sq_;
     }
 
-    float count_len_sq()
+    void set_x( float x)
     {
-        len_sq_ = x_ * x_ + y_ * y_ + z_ * z_;
-        return len_sq_;
+        kernel.x_ = x;
+    }
+
+    void set_y( float y)
+    {
+        kernel.y_ = y;
+    }
+
+    void set_z( float z)
+    {
+        kernel.z_ = z;
+    }
+
+    void set_len_sq( float len_sq)
+    {
+        kernel.len_sq_ = len_sq;
+    }
+
+    void set_len_sq()
+    {
+        if ( std::isnan( get_len_sq()) )
+        {
+            kernel.len_sq_ = get_x() * get_x() + get_y() * get_y() + get_z() * get_z();
+        }
     }
 
     void norm()
     {
-        *this *= 1 / sqrt( count_len_sq());
+        set_len_sq(); // count current len
+        *this *= 1 / sqrtf( get_len_sq());
+        set_len_sq(1.f); // set len to 1.f
     }
 
     void draw2D( sf::RenderWindow& window,
                  const sf::Vector2f& start_point);
     void rotate2D( const float angle);
 
-    float x_;
-    float y_;
-    float z_;
-    float len_sq_;
+private:
+
+    // Place in inner class the kernel to avoid
+    // hardening Vector
+
+    class VectorKern
+    {
+    public:
+        VectorKern() : x_(0), y_(0), z_(0), len_sq_(NAN) {};
+        VectorKern( float x, float y, float z) : x_(x), y_(y), z_(z), len_sq_(NAN) {};
+
+        float x_;
+        float y_;
+        float z_;
+        float len_sq_;
+
+    } kernel;
+
 };
 
 inline float dot( const Vector& vec1, const Vector& vec2)
 {
-    return vec1.x_ * vec2.x_ +
-           vec1.y_ * vec2.y_ +
-           vec1.z_ * vec2.z_;
+    return vec1.get_x() * vec2.get_x() +
+           vec1.get_y() * vec2.get_y() +
+           vec1.get_z() * vec2.get_z();
 }
 
-inline float cosv( Vector& vec1, Vector& vec2)
+inline float cosv( Vector* const lhs, Vector* const rhs)
 {
-    float normalize = sqrt(vec1.count_len_sq()) * sqrt(vec2.count_len_sq());
-    return dot( vec1, vec2) / normalize; 
-}
+    lhs->set_len_sq();
+    rhs->set_len_sq();
 
+    float normalize = sqrtf( rhs->get_len_sq()) * sqrtf( lhs->get_len_sq());
+    return dot( *lhs, *rhs) / normalize; 
+}
 
 #endif

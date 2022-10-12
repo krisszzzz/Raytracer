@@ -29,8 +29,9 @@ raytracer( sf::RenderWindow& window,
            int x_size,
            int y_size,
            Sphere objects[],
-           const Vector& view);
-
+           int object_count,
+           const Vector& view,
+           const Vector& light_pos);
 
 #endif
 

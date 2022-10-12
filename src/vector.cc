@@ -4,6 +4,73 @@
 #define WIDTH 1920
 #define HEIGHT 1200
 
+Vector&
+Vector::operator+=( const Vector& rhs)
+{
+    set_x( get_x() + rhs.get_x());
+    set_y( get_y() + rhs.get_y());
+    set_z( get_z() + rhs.get_z());
+    
+    return *this;
+}
+
+
+Vector&
+Vector::operator-=( const Vector& rhs)
+{
+    set_x( get_x() - rhs.get_x());
+    set_y( get_y() - rhs.get_y());
+    set_z( get_z() - rhs.get_z());
+    
+    return *this;
+}
+
+Vector&
+Vector::operator*=( const float rhs)
+{
+    set_x( get_x() * rhs);
+    set_y( get_y() * rhs);
+    set_z( get_z() * rhs);
+    
+    return *this;
+}
+
+
+Vector
+Vector::operator+( const Vector& add) const
+{
+    Vector tmp = *this;
+    tmp += add;
+    return tmp;
+} /* Vector::operator+ */
+
+Vector
+Vector::operator-( const Vector& sub) const
+{
+    Vector tmp = *this;
+    tmp -= sub;
+    return tmp;
+} /* Vector::operator- */
+
+Vector
+Vector::operator*( const float value) const
+{
+    Vector tmp = *this;
+    tmp *= value;
+    return tmp;
+} /* Vector::operator* */
+
+Vector
+Vector::operator-() const
+{
+    Vector un_minus { -this->get_x(),
+                      -this->get_y(),
+                      -this->get_z()
+                    };
+    return un_minus;
+} /* Vector::operator- */
+
+
 static void
 find_arrow( sf::Vertex line[2],
             sf::Vertex arrow[3])
@@ -37,7 +104,7 @@ Vector::draw2D( sf::RenderWindow& window,
     sf::Vertex line[]
     {
         sf::Vertex { start_point },
-        sf::Vertex { start_point + sf::Vector2f { x_, y_ } }
+        sf::Vertex { start_point + sf::Vector2f { get_x(), get_y() } }
     };
 
     sf::Vertex arrow[3] = {};
@@ -51,8 +118,8 @@ Vector::draw2D( sf::RenderWindow& window,
 void
 Vector::rotate2D( const float angle)
 {
-    const float tmp_x = x_;
+    const float tmp_x = get_x();
 
-    x_ = tmp_x * cos( angle) - y_ * sin( angle);
-    y_ = tmp_x * sin( angle) + y_ * cos( angle);
+    set_x( tmp_x * cos( angle) - get_y() * sin( angle));
+    set_y( tmp_x * sin( angle) + get_y() * cos( angle));
 }
