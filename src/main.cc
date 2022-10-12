@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "raycaster.h"
-
+#include "raytracer.h"
    
 int main()
 {
@@ -20,17 +20,23 @@ int main()
 
         window.clear();
 
+
+        // Sphere sphere { sf::Color::Green, Vector { 960, 600, 0 }, 200 };
+        // raytracer( window, 1920, 1200, &sphere, Vector { 20000, 600, 1500 }); 
+
         sf::Color color = {};
-        color.a = 255;
-        color.b = 0;
-        color.r = 50;
-        color.g = 0;
+        // color.a = 50;
+        // color.b = 50;
+        // color.r = 50;
+        // color.g = 0;
+
+        Sphere sphere { sf::Color::Green, Vector { 1920 / 2.f, 1200 / 2.f, 0 }, 400 };
 
         sphere_raycast( window,
-                        Point2f { 1920 / 2.f, 1200 / 2.f },
-                        Point3f { 0, 0, 2000 },
-                        
-                        400,
+                        sphere,
+                        Vector { 0, 600, 1000 },
+                        sf::Color::White,
+                        Vector { 0, 0, 1000 },
                         color
                        );
         

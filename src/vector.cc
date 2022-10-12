@@ -4,38 +4,6 @@
 #define WIDTH 1920
 #define HEIGHT 1200
 
-inline void
-Vector::operator+=( const Vector& add)
-{
-    x_ += add.x_;
-    y_ += add.y_;
-    z_ += add.z_;
-};
-
-inline void
-Vector::operator-=( const Vector& sub)
-{
-    x_ -= sub.x_;
-    y_ -= sub.y_;
-    z_ -= sub.z_;
-}
-
-Vector
-operator+( const Vector& v1, const Vector& v2)
-{
-    Vector tmp = v1;
-    tmp += v2;
-    return tmp;
-}
-
-Vector
-operator-( const Vector& v1, const Vector& v2)
-{
-    Vector tmp = v1;
-    tmp -= v2;
-    return tmp;
-}
-
 static void
 find_arrow( sf::Vertex line[2],
             sf::Vertex arrow[3])

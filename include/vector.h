@@ -1,46 +1,69 @@
+#ifndef VECTOR_H_
+#define VECTOR_H_
+
 #include <SFML/Graphics.hpp>
 #include <math.h>
 
-
-class Point2f
-{
-public:
-    Point2f() : x_(0), y_(0) {};
-    Point2f( float x, float y) : x_(x), y_(y) {};
-    ~Point2f() {};
-
-    float x_;
-    float y_;
-};
-
-class Point3f
-{
-public:
-    Point3f() : x_(0), y_(0), z_(0) {};
-    Point3f( float x, float y, float z) : x_(x), y_(y), z_(z) {};
-    ~Point3f() {};
-
-    float x_;
-    float y_;
-    float z_;
-};
 
 
 class Vector
 {
 public:
-    Vector() : x_(0), y_(0), z_(0), len_sq_(NAN) {};
-    Vector( float x, float y) : x_(x), y_(y), z_(0), len_sq_(NAN) {};
+    Vector() : x_(), y_(), z_(), len_sq_(NAN) {};
     Vector( float x, float y, float z) : x_(x), y_(y), z_(z), len_sq_(NAN) {};
-    ~Vector() {};
     
-    void operator+=( const Vector& add);
-    void operator-=( const Vector& sub);
-   
+    void operator+=( const Vector& add)
+    {
+        x_ += add.x_;
+        y_ += add.y_;
+        z_ += add.z_;
+    }
+    
+    void operator-=( const Vector& sub)
+    {
+         x_ -= sub.x_;
+         y_ -= sub.y_;
+         z_ -= sub.z_;
+         
+    };
+
+    void operator*=( const float prod)
+    {
+        x_ *= prod;
+        y_ *= prod;
+        z_ *= prod;
+    }
+
+    Vector operator+( const Vector& add) const
+    {
+        Vector tmp = *this;
+        tmp += add;
+        return tmp;
+    }
+
+    Vector operator-( const Vector& sub) const
+    {
+        Vector tmp = *this;
+        tmp -= sub;
+        return tmp;
+    }
+
+    Vector operator*( const float value) const
+    {
+        Vector tmp = *this;
+        tmp *= value;
+        return tmp;
+    }
+
     float count_len_sq()
     {
         len_sq_ = x_ * x_ + y_ * y_ + z_ * z_;
         return len_sq_;
+    }
+
+    void norm()
+    {
+        *this *= 1 / sqrt( count_len_sq());
     }
 
     void draw2D( sf::RenderWindow& window,
@@ -53,11 +76,18 @@ public:
     float len_sq_;
 };
 
-
-Vector operator+( const Vector& v1, const Vector& v2);
-Vector operator-( const Vector& v1, const Vector& v2);
-
 inline float dot( const Vector& vec1, const Vector& vec2)
 {
-    return vec1.x_ * vec2.x_ + vec1.y_ * vec2.y_ + vec1.z_ * vec2.z_;
-};
+    return vec1.x_ * vec2.x_ +
+           vec1.y_ * vec2.y_ +
+           vec1.z_ * vec2.z_;
+}
+
+inline float cosv( Vector& vec1, Vector& vec2)
+{
+    float normalize = sqrt(vec1.count_len_sq()) * sqrt(vec2.count_len_sq());
+    return dot( vec1, vec2) / normalize; 
+}
+
+
+#endif
