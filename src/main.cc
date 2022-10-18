@@ -1,12 +1,32 @@
 #include <stdio.h>
-#include "raycaster.h"
-#include "raytracer.h"
+#include "scene.h"
    
 int main()
 {
     sf::RenderWindow window { sf::VideoMode { 1920, 1200 }, "Cringe" };
 
+    
+    Scene ray_tracer { &window, Vector { 960, 600, 500 } }; 
+
+    Sphere object_1 { Vector { 960, 600, -500 },
+                      500,
+                      sf::Color::Blue,
+                      25.f };
+    
+    Sphere object_2 { Vector { 960, 600, 0 },
+                      100,
+                      sf::Color::Green,
+                      25.f };
+    
+
     int i = 0;
+
+    ray_tracer.add_obj( object_1);
+    ray_tracer.add_obj( object_2);
+
+    ray_tracer.add_light( Light { Vector { 0, 600, 1000 }, sf::Color::White });
+    ray_tracer.add_light( Light { Vector { 960, 0, 1000 }, sf::Color::White });
+    
 
     while ( window.isOpen() )
     {
@@ -22,20 +42,6 @@ int main()
         window.clear(sf::Color::Cyan);
 
 
-        sf::Color color { 0, 0, 50 };
-        Sphere objects[2] {};
-
-        objects[1].centre_pos_ = Vector { 960, 600, -600 };
-        objects[1].color_ = sf::Color::Blue;
-        objects[1].spec_coeff_ = 25.f;
-        objects[1].radius_ = 500;
-
-        objects[0].centre_pos_ = Vector { 960, 600, 0 };
-        objects[0].color_ = sf::Color::Green;
-        objects[0].spec_coeff_ = 25.f;
-        objects[0].radius_ = 100;
-        
-
         i += 10;
 
         if ( i == 1920 )
@@ -43,9 +49,12 @@ int main()
             i = 0;
         }
 
-        Vector light_pos = { (float)i, 600, 1000 }; 
+        Light light { Vector { (float)i, 600, 1000 }, sf::Color::White }; 
 
-        raytracer( window, 1920, 1200, objects, 2, Vector { 960, 600, 1500 }, light_pos);
+        ray_tracer.set_light( 0, light);
+        ray_tracer.raytrace();
+        // ray_tracer.raycast(0);
+ 
 
         // sf::Color color = { 20, 20, 20 };
 

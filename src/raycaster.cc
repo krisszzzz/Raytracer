@@ -1,55 +1,28 @@
-#include "raycaster.h"
-#include <SFML/Config.hpp>
-
+#include "scene.h"
 
 static void
-transfer_coord( Vector* new_vec,
-                const Vector& vec,
+transfer_coord( Vector* vec,
                 const Vector& coord_sys)
 {
-    new_vec->set_x( vec.get_x() - coord_sys.get_x());
-    new_vec->set_y( coord_sys.get_y() - vec.get_y());
-    new_vec->set_z( vec.get_z() - coord_sys.get_z());
+    vec->set_x( vec->get_x() - coord_sys.get_x());
+    vec->set_y( coord_sys.get_y() - vec->get_y());
+    vec->set_z( vec->get_z() - coord_sys.get_z());
 } /* transfer_coord */
 
 
-float
-max( float first, float second)
-{
-    return ( first > second ) ? first : second;
-} /* max */
-
 
 void
-vec_reflect( Vector* reflect,    // OUT: reflected vector
-             const Vector& dir,  // IN: direction vector
-             const Vector& norm) // IN: normalized vector of normal
+Scene::raycast( const std::size_t obj_num)
 {
-    *reflect = dir - norm * 2.f * dot( dir, norm);
-} /* vec_reflect */
-
-
-void
-sphere_raycast( sf::RenderWindow& window,
-                const Sphere& sphere,
-                const Vector& light,
-                const sf::Color& light_color,
-                const Vector& view,
-                const sf::Color ambient)
-{
-    int i_radius = (int)sphere.radius_;
-
-    // recount light position in centre system
-
-    Vector light_pos = {};
-    Vector view_pos = {};
-
-    transfer_coord( &light_pos, light, sphere.centre_pos_);
-    transfer_coord( &view_pos, view, sphere.centre_pos_);
+    const Sphere sphere = get_obj( obj_num);
+    const Vector coord_sys = sphere.centre_pos_;
+    
+    float radius = sphere.radius_;
+    int i_radius = (float)radius;
 
     sf::VertexArray point_map { sf::Points, i_radius * i_radius * 4 };
 
-    float r_2 = (float) ( sphere.radius_ * sphere.radius_);
+    float r_2 = (float) (radius * radius);
 
     for ( int y = 0; y < 2 * i_radius; y++ )
     {
@@ -73,31 +46,25 @@ sphere_raycast( sf::RenderWindow& window,
             {
                 float z_pos = sqrtf( r_2 - x_y_sqr);
 
-                Vector norm_vec   { x_pos, y_pos, z_pos };
-                Vector view_vec   { view_pos - norm_vec };
-                Vector light_vec  { light_pos - norm_vec };
-
-                float diffusion = max( cosv( &norm_vec, &light_vec), 0.f);
-                Vector reflect_vec {};
+                Vector norm_vec { x_pos, y_pos, z_pos };
+                 // printf("Before:\n");
+                // norm_vec.print();
+                transfer_coord( &norm_vec, coord_sys);
+                // norm_vec.print();
+                Phong phong {};
+                get_phong( &phong, norm_vec, obj_num);
                 
-                norm_vec.norm();
-                vec_reflect( &reflect_vec, light_vec, norm_vec);
-
-                // notice that reflect_vec look to different direction, because of light_vec
-                // so we should use "-"
-                float specular = powf( max( -cosv( &view_vec, &reflect_vec), 0.f), sphere.spec_coeff_);
-
                 constexpr int cvt_to_int = 255;
 
-                sf::Uint8 i_diff = (sf::Uint8)(diffusion * cvt_to_int);
-                sf::Uint8 i_spec = (sf::Uint8)(specular * cvt_to_int);
+                sf::Uint8 i_diff = (sf::Uint8)(phong.diffusion * cvt_to_int);
+                sf::Uint8 i_spec = (sf::Uint8)(phong.specular * cvt_to_int);
 
                 sf::Color diff_color { i_diff, i_diff, i_diff };
                 sf::Color spec_color { i_spec, i_spec, i_spec };
 
-                point_map[point_pos].color = ambient +
+                point_map[point_pos].color = 
                                              diff_color * sphere.color_ +
-                                             spec_color * light_color; 
+                                             spec_color; 
 
             }
 
@@ -105,7 +72,7 @@ sphere_raycast( sf::RenderWindow& window,
         
     }
 
-    window.draw( point_map);
+    get_window()->draw( point_map);
 
 } /* sphere_raycast */
 

@@ -1,158 +1,160 @@
-#include "raytracer.h"
+#include "scene.h"
+#include "ray.h"
+#include <cstdio>
+#include <unistd.h>
 
-static int 
-find_intersect( float* const scaling_coeff, // get scanling coefficent to find the intersection point
-                const Vector& dir,    // normalized vector of ray
-                const Vector& orig,   // point on the dir vector
-                const Sphere& sphere) // sphere
+#define NO_CROSS -1
+
+float
+max( float first, float second)
 {
-    
-    Vector to_center = sphere.centre_pos_ - orig;
-    float dir_center_dot = dot( dir, to_center);
-    to_center.set_len_sq();
-
-    float distance_2 = to_center.get_len_sq() -
-                       dir_center_dot * dir_center_dot;
-
-    if ( distance_2 > sphere.radius_ * sphere.radius_ )
-    {
-        return 0;
-    }
-
-    float dist_to_inter_center = sqrtf( sphere.radius_ * sphere.radius_ - distance_2);
-
-    *scaling_coeff = dir_center_dot - dist_to_inter_center;
-    float second_inter = dir_center_dot + dist_to_inter_center;
-
-    // TODO: not work for inner intersection
-    
-    if ( *scaling_coeff < 0 && second_inter < 0) // both intersection against the ray direction
-    {
-        return 0;
-    }
-
-    return 1;
-}
-
-static int
-find_nearest_inter( float* const scaling_coeff,
-                    const Vector& dir,
-                    const Vector& orig,
-                    Sphere objects[],
-                    int object_count)
-{
-    int obj_count = 0;
-    int inter_count = 0;
-    int nearest_obj = -1;
-
-    for (; obj_count < object_count; obj_count++ )
-    {
-        float curr_inter = 0;
-        
-        if ( find_intersect( &curr_inter, dir, orig, objects[obj_count]) )
-        {
-            inter_count++;
-
-            if ( inter_count == 1 )
-            {
-                *scaling_coeff = curr_inter;
-                nearest_obj = obj_count;
-            }
-
-            if ( curr_inter < *scaling_coeff )
-            {
-                *scaling_coeff = curr_inter;
-                nearest_obj = obj_count;
-            }
-
-        }
-    }
-
-    return nearest_obj;
-
-}
+    return ( first > second ) ? first : second;
+} /* max */
 
 void
-raytracer( sf::RenderWindow& window,
-           int x_size,
-           int y_size,
-           Sphere objects[],
-           int object_count,
-           const Vector& view,
-           const Vector& light_pos)
+vector_reflect( Vector* reflect,    // OUT: reflected vector
+                const Vector& dir,  // IN: direction vector
+                const Vector& norm) // IN: normalized vector of normal
 {
-    Vector view_vec = view;
+    *reflect = dir - norm * 2.f * dot( dir, norm);
+} /* vec_reflect */
 
-    sf::VertexArray point_map { sf::Points, x_size * y_size };
+int 
+Scene::get_phong( Phong* phong,
+                  const Vector& orig, 
+                  const std::size_t curr_obj)
+{
+    std::size_t no_light = 0;
     
-    for ( int y = 0; y < y_size; y++ )
+    for ( std::size_t light_count = 0; light_count < get_light_size(); light_count++ )
     {
-        for ( int x = 0; x < x_size; x++ )
+        Vector norm_vec = orig - get_obj( curr_obj).centre_pos_;
+        Vector to_camera = get_camera() - orig;
+        norm_vec.norm();
+
+        Ray light_ray { get_light( light_count).pos_ - orig,
+                        orig };
+
+        if ( light_ray.is_cross( get_objects(), curr_obj) )
         {
-            int point_pos = x + y * x_size;
+            no_light++;
+            continue;
+        }
+
+        // light_ray.get_ray().print();
+        // norm_vec.print();
+        
+        phong->diffusion += max( cosv( &light_ray.get_ray(), &norm_vec), 0.f);
+        
+        light_ray.reflect( norm_vec);
+        
+        phong->specular += powf( max( -cosv( &light_ray.get_ray(), &to_camera), 0.f),
+                                 get_obj( curr_obj).spec_coeff_);
+
+    }
+
+    if ( phong->diffusion > 1 )
+        phong->diffusion = 1;
+
+    if ( phong->specular > 1 )
+        phong->specular = 1;
+
+    if ( no_light == get_obj_size() )
+    {
+        return NO_CROSS;
+    }
+
+    return 0;
+}
+
+// static int
+// get_raytrace( Ray* const ray,
+//               Scene* scene,
+//               const int curr_obj,
+//               const Vector& orig)
+// {
+//     ray->add_cross( orig);
+//     Vector norm_vec = orig - scene->get_obj( curr_obj).centre_pos_;
+//     norm_vec.norm();
+
+//     ray->reflect( norm_vec);
+
+//     for ( std::size_t i = 0; i < ray->get_max_depth(); i++ )
+//     {
+//         int inter_obj = 0;
+
+//         if ( !check_intersect( scene, &inter_obj, curr_obj, ray->get_cross( i), ray->get_ray()) )
+//         {
+//             break;
+//         }
+
+        
+//     }
+
+//     return 0;
+// }
+
+void
+Scene::raytrace( std::size_t width,
+                 std::size_t height)
+{
+    if ( width == RESOLUTION_DEFAULT )
+    {
+        width = get_window()->getSize().x; 
+    }
+
+    if ( height == RESOLUTION_DEFAULT )
+    {
+        height = get_window()->getSize().y;
+    }
+
+    sf::VertexArray point_map { sf::Points, height * width };
+    
+    for ( std::size_t y = 0; y < height; y++ )
+    {
+        for ( std::size_t x = 0; x < width; x++ )
+        {
+            std::size_t point_pos = x + y * width;
             
             point_map[point_pos].position.x = (float)x;
             point_map[point_pos].position.y = (float)y;
  
-            Vector ray_vec { (float)x - view_vec.get_x(),
-                             (float)y - view_vec.get_y(),
-                             0        - view_vec.get_z() };
-            ray_vec.norm();
+            Vector on_flat { (float)x, (float)y, 0 };
+            Vector cross {};
             
-            float scale_to_inter = 0;
+            Ray ray { on_flat - get_camera(), get_camera() };
 
-            int nearest = find_nearest_inter( &scale_to_inter,
-                                              ray_vec,
-                                              view_vec,
-                                              objects,
-                                              object_count);
-
-            if ( nearest != -1 )
+            int nearest = ray.nearest_cross( get_objects(), &cross);
+            
+            if ( nearest != NO_CROSS )
             {
-                Vector inter_pos = view + ray_vec * scale_to_inter;
-                Vector norm_vec = inter_pos - objects[nearest].centre_pos_;
-                norm_vec.norm();
+                Phong phong = {};
 
-                Vector reflect_vec {};
-                
-                vec_reflect( &reflect_vec, inter_pos, norm_vec);
+                int is_shadowed = get_phong( &phong,
+                                             cross,
+                                             nearest);
 
-                Vector light_vec = light_pos - inter_pos;
-                light_vec.norm();
-
-                float light_inter = 0;
-                int inter = find_nearest_inter( &light_inter, -light_vec, light_pos, objects, object_count);
-
-                if ( inter != nearest && inter != -1 )
+                if ( is_shadowed )
                 {
-                    point_map[point_pos].color = sf::Color::Black;
-                    continue;
+                     point_map[point_pos].color *= sf::Color::Black;
+                     continue;
                 }
-                
-                
-                Vector light_refl_vec {};
-                vec_reflect( &light_refl_vec, light_vec, norm_vec);
-                
-                float diffusion = max( cosv( &light_vec, &norm_vec), 0.f);
-                float specular  = powf( max( -cosv( &light_refl_vec, &view_vec), 0.f),
-                                       objects[nearest].spec_coeff_);
-                // use "-" because the light_vec in against direction
-                
+
                 constexpr int cvt_to_int = 255;
                 
-                sf::Uint8 i_diff = (sf::Uint8)(diffusion * cvt_to_int);
+                sf::Uint8 i_diff = (sf::Uint8)(phong.diffusion * cvt_to_int);
                 sf::Color diff_color { i_diff, i_diff, i_diff };
-                sf::Uint8 i_spec = (sf::Uint8)(specular * cvt_to_int);
+                sf::Uint8 i_spec = (sf::Uint8)(phong.specular * cvt_to_int);
                 sf::Color spec_color { i_spec, i_spec, i_spec };
                 
-                point_map[point_pos].color = objects[nearest].color_ * diff_color + spec_color;
+                point_map[point_pos].color = get_obj(nearest).color_ * diff_color + spec_color;
                 
             }
 
         }
     }
 
-    window.draw( point_map);
+    get_window()->draw( point_map);
     
 }
 
