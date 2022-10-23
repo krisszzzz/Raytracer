@@ -1,163 +1,232 @@
-#include "scene.h"
-#include "ray.h"
-#include <cstdio>
-#include <unistd.h>
+#include "raytracer.h"
+#include <float.h>
+#include <SFML/Config.hpp>
+#include <SFML/Graphics/Color.hpp>
 
-#define NO_CROSS -1
 
-float
+Raytracer::Raytracer( const std::vector<Sphere>& objects,
+                      const std::vector<Light>& lighting,
+                      const std::size_t x_res,
+                      const std::size_t y_res,
+                      const Vector& camera) :
+    LightRenderer( objects,
+                   lighting,
+                   x_res,
+                   y_res,
+                   camera),
+    render_object_(NOT_AN_OBJECT)
+{
+} /* Raytracer() */
+
+Raytracer::Raytracer( const std::size_t x_res,
+                      const std::size_t y_res,
+                      const Vector& camera) :
+    LightRenderer( x_res,
+                   y_res,
+                   camera),
+    render_object_(NOT_AN_OBJECT)
+{
+} /* Raytracer() */
+
+
+static int
+find_intersection( Ray* const ray,
+                   const Sphere& object,
+                   float* const intersection)
+{
+    Vector to_center = object.get_centre() - ray->get_orig();
+    ray->get_dir().norm();
+
+    float dir_center_dot = dot( ray->get_dir(), to_center);
+    to_center.count_len_sq();
+
+    float distance_2 = to_center.get_len_sq() -
+                       dir_center_dot * dir_center_dot;
+
+    if ( distance_2 > object.get_radius() * object.get_radius() )
+    {
+        return 0;
+    }
+
+    float dist_to_inter_center = sqrtf( object.get_radius() * object.get_radius() - distance_2);
+
+    *intersection = dir_center_dot - dist_to_inter_center;
+    float second_scale = dir_center_dot + dist_to_inter_center;
+
+    if ( *intersection < 0 )
+    {
+        *intersection = second_scale;
+    }
+    
+    if ( *intersection < 0 ) // both intersection against the ray direction
+    {
+        return 0;
+    }
+
+    return 1;
+ 
+} /* find_intersection */
+
+#define NO_HIT -1
+
+int
+Raytracer::hittable( Ray* const ray,
+                     Vector* nearest)
+{
+    int nearest_obj = NO_HIT;
+    float f_nearest = FLT_MAX;
+    
+    for ( std::size_t i = 0; i < objects_.size(); i++ )
+    {
+        if ( i == render_object_ )
+        {
+            continue; // skip render_object
+        }
+
+        float intersection = 0;
+
+        if ( find_intersection( ray,
+                                get_object( i),
+                                &intersection) )
+        {
+            if ( intersection < f_nearest )
+            {
+                f_nearest = intersection;
+                nearest_obj = (int)i;
+            }
+            
+        }
+    }
+    
+    if ( nearest != nullptr )
+    {
+        *nearest = ray->get_orig() + ray->get_dir() * f_nearest;
+    }
+
+    return nearest_obj;
+    
+}
+
+static float
 max( float first, float second)
 {
     return ( first > second ) ? first : second;
 } /* max */
 
-void
-vector_reflect( Vector* reflect,    // OUT: reflected vector
-                const Vector& dir,  // IN: direction vector
-                const Vector& norm) // IN: normalized vector of normal
-{
-    *reflect = dir - norm * 2.f * dot( dir, norm);
-} /* vec_reflect */
 
-int 
-Scene::get_phong( Phong* phong,
-                  const Vector& orig, 
-                  const std::size_t curr_obj)
+#define UINT_8( coeff) (sf::Uint8)(coeff * 255)
+
+
+static sf::Color operator*( sf::Color color, float value)
+{
+    if ( value > 1 )
+    {
+        value = 1;
+    }
+
+    sf::Color value_color { UINT_8( value), UINT_8( value), UINT_8( value) };
+
+    return color * value_color;
+}
+
+sf::Color
+Raytracer::get_phong( const Vector& orig)
 {
     std::size_t no_light = 0;
+    sf::Color color = sf::Color::Black;
+
+    Vector norm_vec = orig - get_render_object().get_centre();
+    Vector to_camera = get_camera() - orig;
+    norm_vec.norm();
     
-    for ( std::size_t light_count = 0; light_count < get_light_size(); light_count++ )
+    for ( std::size_t light_count = 0; light_count < get_n_light(); light_count++ )
     {
-        Vector norm_vec = orig - get_obj( curr_obj).centre_pos_;
-        Vector to_camera = get_camera() - orig;
-        norm_vec.norm();
+        Ray light_ray { orig, get_light( light_count).get_pos() - orig };
 
-        Ray light_ray { get_light( light_count).pos_ - orig,
-                        orig };
-
-        if ( light_ray.is_cross( get_objects(), curr_obj) )
+        if ( hittable( &light_ray) != NO_HIT )
         {
             no_light++;
             continue;
         }
 
-        // light_ray.get_ray().print();
-        // norm_vec.print();
-        
-        phong->diffusion += max( cosv( &light_ray.get_ray(), &norm_vec), 0.f);
+        float diffusion = max( cosv( &light_ray.get_dir(), &norm_vec), 0.f);
         
         light_ray.reflect( norm_vec);
-        
-        phong->specular += powf( max( -cosv( &light_ray.get_ray(), &to_camera), 0.f),
-                                 get_obj( curr_obj).spec_coeff_);
+        float specular = powf( max( -cosv( &light_ray.get_dir(), &to_camera), 0.f),
+                               get_render_object().get_specular());
 
+        sf::Color material = get_render_object().get_color();
+        sf::Color light = get_light( light_count).get_color();
+
+        color += material * light * ( diffusion + specular );
     }
 
-    if ( phong->diffusion > 1 )
-        phong->diffusion = 1;
-
-    if ( phong->specular > 1 )
-        phong->specular = 1;
-
-    if ( no_light == get_obj_size() )
-    {
-        return NO_CROSS;
-    }
-
-    return 0;
+    return color;
 }
 
-// static int
-// get_raytrace( Ray* const ray,
-//               Scene* scene,
-//               const int curr_obj,
-//               const Vector& orig)
-// {
-//     ray->add_cross( orig);
-//     Vector norm_vec = orig - scene->get_obj( curr_obj).centre_pos_;
-//     norm_vec.norm();
 
-//     ray->reflect( norm_vec);
+#define MAX_DEPTH 10
 
-//     for ( std::size_t i = 0; i < ray->get_max_depth(); i++ )
-//     {
-//         int inter_obj = 0;
+sf::Color
+Raytracer::trace_ray( Ray* const ray, int max_depth)
+{
+    Vector hit_vec {};
 
-//         if ( !check_intersect( scene, &inter_obj, curr_obj, ray->get_cross( i), ray->get_ray()) )
-//         {
-//             break;
-//         }
+    int nearest = hittable( ray, &hit_vec);
 
-        
-//     }
+    if ( nearest == NO_HIT )
+    {
+        return sf::Color::Transparent;
+    }
 
-//     return 0;
-// }
+    set_render_object( nearest);
+
+    sf::Color local_color = get_phong( hit_vec);
+
+    Vector norm_vec = hit_vec - get_object( nearest).get_centre();
+    norm_vec.norm();
+
+    ray->reflect( norm_vec);
+    ray->set_orig( hit_vec);
+
+    max_depth--;
+
+    if ( max_depth == 0 || !get_object( nearest).is_reflective() ) 
+    {
+        return local_color;
+    }
+
+    sf::Color reflected_color = trace_ray( ray, max_depth);
+
+    // no intersection with another object
+    if ( reflected_color == sf::Color::Transparent )
+    {
+        return local_color;
+    }
+
+    return local_color * ( 1 - get_object( nearest).get_reflective() )  + 
+           reflected_color * get_object( nearest).get_reflective();
+}
+
 
 void
-Scene::raytrace( std::size_t width,
-                 std::size_t height)
+Raytracer::render()
 {
-    if ( width == RESOLUTION_DEFAULT )
+    for ( std::size_t y = 0; y < y_res_; y++ )
     {
-        width = get_window()->getSize().x; 
-    }
-
-    if ( height == RESOLUTION_DEFAULT )
-    {
-        height = get_window()->getSize().y;
-    }
-
-    sf::VertexArray point_map { sf::Points, height * width };
-    
-    for ( std::size_t y = 0; y < height; y++ )
-    {
-        for ( std::size_t x = 0; x < width; x++ )
+        for ( std::size_t x = 0; x < x_res_; x++ )
         {
-            std::size_t point_pos = x + y * width;
-            
-            point_map[point_pos].position.x = (float)x;
-            point_map[point_pos].position.y = (float)y;
- 
             Vector on_flat { (float)x, (float)y, 0 };
-            Vector cross {};
+
+            Ray ray { get_camera(), on_flat - get_camera() };
             
-            Ray ray { on_flat - get_camera(), get_camera() };
+            set_render_object( NOT_AN_OBJECT);
+            // the ray yet is not reached any object, so the render object
+            // doesn't exist
+            sf::Color color = trace_ray( &ray, MAX_DEPTH);
 
-            int nearest = ray.nearest_cross( get_objects(), &cross);
-            
-            if ( nearest != NO_CROSS )
-            {
-                Phong phong = {};
-
-                int is_shadowed = get_phong( &phong,
-                                             cross,
-                                             nearest);
-
-                if ( is_shadowed )
-                {
-                     point_map[point_pos].color *= sf::Color::Black;
-                     continue;
-                }
-
-                constexpr int cvt_to_int = 255;
-                
-                sf::Uint8 i_diff = (sf::Uint8)(phong.diffusion * cvt_to_int);
-                sf::Color diff_color { i_diff, i_diff, i_diff };
-                sf::Uint8 i_spec = (sf::Uint8)(phong.specular * cvt_to_int);
-                sf::Color spec_color { i_spec, i_spec, i_spec };
-                
-                point_map[point_pos].color = get_obj(nearest).color_ * diff_color + spec_color;
-                
-            }
-
+            set_point( x, y, color);
         }
     }
-
-    get_window()->draw( point_map);
-    
 }
-
-
-
 

@@ -1,46 +1,45 @@
 #ifndef RAY_H_
 #define RAY_H_
 
+
 #include "vector.h"
-#include "objects.h"
 
 class Ray
 {
 public:
-    Ray( const Vector& ray,
-         const Vector& orig) :
-        ray_(ray),
+    Ray( const Vector& orig,
+         const Vector& dir) :
         orig_(orig),
-        color_(sf::Color::Transparent) {};
+        dir_(dir)
+    {};
 
-    // Vector&
-    // operator[]( std::size_t elem)
-    // {
-    //     return cross_.at( elem);
-    // }
+    Ray() :
+        orig_(),
+        dir_()
+    {};
 
     void
-    mix_color( const sf::Color& color)
+    set_orig( const Vector& orig)
     {
-        color_ *= color;
+        orig_ = orig;
     }
 
     void
-    set_color( const sf::Color& color)
+    set_dir( const Vector& dir)
     {
-        color_ = color;
+        dir_ = dir;
     }
 
-    void
-    set_ray( const Vector& ray)
+    const Vector&
+    get_orig() const
     {
-        ray_ = ray;
+        return orig_;
     }
-
-    Vector&
-    get_ray()
+    
+    const Vector&
+    get_dir() const
     {
-        return ray_;
+        return dir_;
     }
 
     Vector&
@@ -49,27 +48,20 @@ public:
         return orig_;
     }
 
-    void
-    reflect( const Vector& norm)
+    Vector&
+    get_dir()
     {
-        ray_ = ray_ - norm * 2.f * dot( ray_, norm);
-        ray_.norm();
+        return dir_;
+    }
+    
+    void reflect( const Vector& norm)
+    {
+        dir_ = dir_ - norm * 2.f * dot( dir_, norm);
     }
 
-    int find_cross( const Sphere& object,
-                    Vector* cross = nullptr);
-    int find_cross_scale( const Sphere& object,
-                          float* cross_scale = nullptr);
-    int is_cross( const std::vector<Sphere>& objects);
-    int is_cross( const std::vector<Sphere>& objects,
-                  const std::size_t obj_orig);
-    int nearest_cross( const std::vector<Sphere>& objects,
-                       Vector* cross);
-
 private:
-    Vector ray_;
     Vector orig_;
-    sf::Color color_;
+    Vector dir_;
 };
 
 #endif

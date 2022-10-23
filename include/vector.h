@@ -4,18 +4,12 @@
 #include <SFML/Graphics.hpp>
 #include <cmath>
 
-
-
 class Vector
 {
 public:
     Vector() : kernel() {}
     Vector( float x, float y, float z) : kernel(x, y, z) {}
     
-    // prevent copying len of vector
-    // Will be problem here: vec = vec1 - vec2;
-    
-          
     Vector& operator+=( const Vector& rhs);
     Vector& operator-=( const Vector& rhs);
     Vector& operator*=( const float rhs);
@@ -120,8 +114,10 @@ private:
     public:
         VectorKern() : x_(0), y_(0), z_(0), len_sq_(NAN) {};
         VectorKern( float x, float y, float z) : x_(x), y_(y), z_(z), len_sq_(NAN) {};
-        VectorKern( const VectorKern& vec) : x_(vec.x_), y_(vec.y_), z_(vec.z_), len_sq_(NAN) {};
 
+        // prevent copying vector len
+        // Will be problem here vec = vec1 + vec2; 
+        VectorKern( const VectorKern& vec) : x_(vec.x_), y_(vec.y_), z_(vec.z_), len_sq_(NAN) {};
         VectorKern& operator=( const VectorKern& vec)
         {
             x_ = vec.x_;
@@ -133,8 +129,6 @@ private:
         }
         
         ~VectorKern() = default;
-        // prevent copying vector len
-        // Will be problem here vec = vec1 + vec2; 
 
         float x_;
         float y_;
