@@ -1,4 +1,5 @@
 #include "raytracer.h"
+#include <cstdio>
 #include <float.h>
 #include <SFML/Config.hpp>
 #include <SFML/Graphics/Color.hpp>
